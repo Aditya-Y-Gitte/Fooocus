@@ -67,8 +67,6 @@
     "Disable seed increment": "Disable seed increment",
     "Disable automatic seed increment when image number is > 1.": "Disable automatic seed increment when image number is > 1.",
     "Read wildcards in order": "Read wildcards in order",
-    "Black Out NSFW": "Black Out NSFW",
-    "Use black image if NSFW is detected.": "Use black image if NSFW is detected.",
     "Save only final enhanced image": "Save only final enhanced image",
     "Save Metadata to Images": "Save Metadata to Images",
     "Adds parameters to generated images allowing manual regeneration.": "Adds parameters to generated images allowing manual regeneration.",

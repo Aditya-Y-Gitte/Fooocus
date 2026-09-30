@@ -59,7 +59,6 @@ class AsyncTask:
         self.disable_preview = args.pop()
         self.disable_intermediate_results = args.pop()
         self.disable_seed_increment = args.pop()
-        self.black_out_nsfw = args.pop()
         self.adm_scaler_positive = args.pop()
         self.adm_scaler_negative = args.pop()
         self.adm_scaler_end = args.pop()
@@ -190,7 +189,6 @@ def worker():
     import extras.face_crop
     import fooocus_version
 
-    from extras.censor import default_censor
     from modules.sdxl_styles import apply_style, get_random_style, fooocus_expansion, apply_arrays, random_style_name
     from modules.private_logger import log
     from extras.expansion import safe_str
@@ -217,13 +215,9 @@ def worker():
         print(f'[Fooocus] {text}')
         async_task.yields.append(['preview', (number, text, None)])
 
-    def yield_result(async_task, imgs, progressbar_index, black_out_nsfw, censor=True, do_not_show_finished_images=False):
+    def yield_result(async_task, imgs, do_not_show_finished_images=False):
         if not isinstance(imgs, list):
             imgs = [imgs]
-
-        if censor and (modules.config.default_black_out_nsfw or black_out_nsfw):
-            progressbar(async_task, progressbar_index, 'Checking for NSFW content ...')
-            imgs = default_censor(imgs)
 
         async_task.results = async_task.results + imgs
 
@@ -314,12 +308,9 @@ def worker():
         if inpaint_worker.current_task is not None:
             imgs = [inpaint_worker.current_task.post_process(x) for x in imgs]
         current_progress = int(base_progress + (100 - preparation_steps) / float(all_steps) * steps)
-        if modules.config.default_black_out_nsfw or async_task.black_out_nsfw:
-            progressbar(async_task, current_progress, 'Checking for NSFW content ...')
-            imgs = default_censor(imgs)
         progressbar(async_task, current_progress, f'Saving image {current_task_id + 1}/{total_count} to system ...')
         img_paths = save_and_log(async_task, height, imgs, task, use_expansion, width, loras, persist_image)
-        yield_result(async_task, img_paths, current_progress, async_task.black_out_nsfw, False,
+        yield_result(async_task, img_paths,
                      do_not_show_finished_images=not show_intermediate_results or async_task.disable_intermediate_results)
 
         return imgs, img_paths, current_progress
@@ -405,7 +396,7 @@ def worker():
             cn_img = HWC3(cn_img)
             task[0] = core.numpy_to_pytorch(cn_img)
             if async_task.debugging_cn_preprocessor:
-                yield_result(async_task, cn_img, current_progress, async_task.black_out_nsfw, do_not_show_finished_images=True)
+                yield_result(async_task, cn_img, do_not_show_finished_images=True)
         for task in async_task.cn_tasks[flags.cn_cpds]:
             cn_img, cn_stop, cn_weight = task
             cn_img = resize_image(HWC3(cn_img), width=width, height=height)
@@ -416,7 +407,7 @@ def worker():
             cn_img = HWC3(cn_img)
             task[0] = core.numpy_to_pytorch(cn_img)
             if async_task.debugging_cn_preprocessor:
-                yield_result(async_task, cn_img, current_progress, async_task.black_out_nsfw, do_not_show_finished_images=True)
+                yield_result(async_task, cn_img, do_not_show_finished_images=True)
         for task in async_task.cn_tasks[flags.cn_ip]:
             cn_img, cn_stop, cn_weight = task
             cn_img = HWC3(cn_img)
@@ -426,7 +417,7 @@ def worker():
 
             task[0] = ip_adapter.preprocess(cn_img, ip_adapter_path=ip_adapter_path)
             if async_task.debugging_cn_preprocessor:
-                yield_result(async_task, cn_img, current_progress, async_task.black_out_nsfw, do_not_show_finished_images=True)
+                yield_result(async_task, cn_img, do_not_show_finished_images=True)
         for task in async_task.cn_tasks[flags.cn_ip_face]:
             cn_img, cn_stop, cn_weight = task
             cn_img = HWC3(cn_img)
@@ -439,7 +430,7 @@ def worker():
 
             task[0] = ip_adapter.preprocess(cn_img, ip_adapter_path=ip_adapter_face_path)
             if async_task.debugging_cn_preprocessor:
-                yield_result(async_task, cn_img, current_progress, async_task.black_out_nsfw, do_not_show_finished_images=True)
+                yield_result(async_task, cn_img, do_not_show_finished_images=True)
         all_ip_tasks = async_task.cn_tasks[flags.cn_ip] + async_task.cn_tasks[flags.cn_ip_face]
         if len(all_ip_tasks) > 0:
             pipeline.final_unet = ip_adapter.patch_model(pipeline.final_unet, all_ip_tasks)
@@ -490,8 +481,8 @@ def worker():
             k=inpaint_respective_field
         )
         if async_task.debugging_inpaint_preprocessor:
-            yield_result(async_task, inpaint_worker.current_task.visualize_mask_processing(), 100,
-                         async_task.black_out_nsfw, do_not_show_finished_images=True)
+            yield_result(async_task, inpaint_worker.current_task.visualize_mask_processing(),
+                         do_not_show_finished_images=True)
             raise EarlyReturnException
 
         if advance_progress:
@@ -984,12 +975,9 @@ def worker():
                 async_task, img, async_task.enhance_uov_method, switch, current_progress)
             if direct_return:
                 d = [('Upscale (Fast)', 'upscale_fast', '2x')]
-                if modules.config.default_black_out_nsfw or async_task.black_out_nsfw:
-                    progressbar(async_task, current_progress, 'Checking for NSFW content ...')
-                    img = default_censor(img)
                 progressbar(async_task, current_progress, f'Saving image {current_task_id + 1}/{total_count} to system ...')
                 uov_image_path = log(img, d, output_format=async_task.output_format, persist_image=persist_image)
-                yield_result(async_task, uov_image_path, current_progress, async_task.black_out_nsfw, False,
+                yield_result(async_task, uov_image_path,
                              do_not_show_finished_images=not show_intermediate_results or async_task.disable_intermediate_results)
                 return current_progress, img, prompt, negative_prompt
 
@@ -1179,12 +1167,9 @@ def worker():
                 advance_progress=True)
             if direct_return:
                 d = [('Upscale (Fast)', 'upscale_fast', '2x')]
-                if modules.config.default_black_out_nsfw or async_task.black_out_nsfw:
-                    progressbar(async_task, 100, 'Checking for NSFW content ...')
-                    async_task.uov_input_image = default_censor(async_task.uov_input_image)
                 progressbar(async_task, 100, 'Saving image to system ...')
                 uov_input_image_path = log(async_task.uov_input_image, d, output_format=async_task.output_format)
-                yield_result(async_task, uov_input_image_path, 100, async_task.black_out_nsfw, False,
+                yield_result(async_task, uov_input_image_path,
                              do_not_show_finished_images=True)
                 return
 
@@ -1223,7 +1208,7 @@ def worker():
             height, width, _ = async_task.enhance_input_image.shape
             # input image already provided, processing is skipped
             steps = 0
-            yield_result(async_task, async_task.enhance_input_image, current_progress, async_task.black_out_nsfw, False,
+            yield_result(async_task, async_task.enhance_input_image,
                          async_task.disable_intermediate_results)
 
         all_steps = steps * async_task.image_number
@@ -1390,8 +1375,7 @@ def worker():
 
                 if async_task.debugging_enhance_masks_checkbox:
                     async_task.yields.append(['preview', (current_progress, 'Loading ...', mask)])
-                    yield_result(async_task, mask, current_progress, async_task.black_out_nsfw, False,
-                                 async_task.disable_intermediate_results)
+                    yield_result(async_task, mask, async_task.disable_intermediate_results)
                     async_task.enhance_stats[index] += 1
 
                 print(f'[Enhance] {dino_detection_count} boxes detected')

@@ -199,7 +199,6 @@ path_controlnet = get_dir_or_set_default('path_controlnet', '../models/controlne
 path_clip_vision = get_dir_or_set_default('path_clip_vision', '../models/clip_vision/')
 path_fooocus_expansion = get_dir_or_set_default('path_fooocus_expansion', '../models/prompt_expansion/fooocus_expansion')
 path_wildcards = get_dir_or_set_default('path_wildcards', '../wildcards/')
-path_safety_checker = get_dir_or_set_default('path_safety_checker', '../models/safety_checker/')
 path_sam = get_dir_or_set_default('path_sam', '../models/sam/')
 path_outputs = get_path_output()
 
@@ -637,12 +636,6 @@ default_sam_max_detections = get_config_item_or_set_default(
     validator=lambda x: isinstance(x, int) and 0 <= x <= 10,
     expected_type=int
 )
-default_black_out_nsfw = get_config_item_or_set_default(
-    key='default_black_out_nsfw',
-    default_value=False,
-    validator=lambda x: isinstance(x, bool),
-    expected_type=bool
-)
 default_save_only_final_enhanced_image = get_config_item_or_set_default(
     key='default_save_only_final_enhanced_image',
     default_value=False,
@@ -948,15 +941,6 @@ def downloading_upscale_model():
         file_name='fooocus_upscaler_s409985e5.bin'
     )
     return os.path.join(path_upscale_models, 'fooocus_upscaler_s409985e5.bin')
-
-def downloading_safety_checker_model():
-    load_file_from_url(
-        url='https://huggingface.co/mashb1t/misc/resolve/main/stable-diffusion-safety-checker.bin',
-        model_dir=path_safety_checker,
-        file_name='stable-diffusion-safety-checker.bin'
-    )
-    return os.path.join(path_safety_checker, 'stable-diffusion-safety-checker.bin')
-
 
 def download_sam_model(sam_model: str) -> str:
     match sam_model:
